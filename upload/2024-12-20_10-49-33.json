@@ -1,0 +1,30 @@
+[
+    {
+        "role": "user",
+        "metadata": {
+            "title": null
+        },
+        "content": "What is one of the most important thing Bayes did"
+    },
+    {
+        "role": "assistant",
+        "metadata": {
+            "title": null
+        },
+        "content": "Bayes combined judgments based on prior hunches with probabilities based on repeatable experiments. He transformed probability from a gambler's measure of frequency into a measure of informed belief.\nSource: theory_never_die.pdf \nPage:189"
+    },
+    {
+        "role": "user",
+        "metadata": {
+            "title": null
+        },
+        "content": "Tell me about 5 Applications of Bayes Theorem"
+    },
+    {
+        "role": "assistant",
+        "metadata": {
+            "title": null
+        },
+        "content": "1. Machine Translation: Bayes' rule is used in machine translation to align sentences in the most probable fit, as demonstrated by Google's translation service.\n\n2. Cognitive Tutors: Bayes' rule is used in educational software to calculate each student's \"skillometer,\" the probability that the individual has mastered a topic and is ready for a new challenge.\n\n3. Business Decision Making: Bayes' rule is used in business decision making to combine judgments based on prior hunches with probabilities based on repeatable experiments, as demonstrated by Robert Osher Schlaifer and Howard Raiffa at Harvard Business School.\n\n4. Language Learning: Bayes' rule is used in language learning to recognize patterns and improve translation, as demonstrated by Google's translation service.\n\n5. Education: Bayes' rule is used in educational software to calculate each student's \"skillometer,\" the probability that the individual has mastered a topic and is ready for a new challenge.\nSource: theory_never_die.pdf \nPage:29"
+    }
+]

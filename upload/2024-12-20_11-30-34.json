@@ -1,0 +1,16 @@
+[
+    {
+        "role": "user",
+        "metadata": {
+            "title": null
+        },
+        "content": "What is one of the most important thing Bayes did"
+    },
+    {
+        "role": "assistant",
+        "metadata": {
+            "title": null
+        },
+        "content": "Bayes' most important contribution was the discovery of Bayes' rule, which transformed probability from a gambler's measure of frequency into a measure of informed belief. This rule allowed for the analysis of evidence, the updating of beliefs based on new information, and the making of rational decisions in the face of uncertainty.\nSource: theory_never_die.pdf \nPage:20, 13, 12, 29 and 189"
+    }
+]
