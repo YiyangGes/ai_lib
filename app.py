@@ -1,4 +1,9 @@
 import os
+import shutil
+import json
+from datetime import datetime
+import gradio as gr
+
 from llama_index.core import (
     VectorStoreIndex,
     SimpleDirectoryReader,
@@ -10,29 +15,47 @@ from llama_index.core import (
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core.agent import ReActAgent
 from llama_index.llms.ollama import Ollama
-import gradio as gr
-import shutil
-from datetime import datetime
-import json
 from llama_index.llms.groq import Groq
+from llama_index.llms.openai import OpenAI
 
-# from dotenv import load_dotenv
-# import os
 
-groq_api = str(os.environ.get("GROQ_API_KEY"))
+# API Key for Groq model
+GROQ_API_KEY = str(os.environ.get("GROQ_API_KEY"))
+OPENAI_API_KEY = str(os.environ.get("OPENAI_API_KEY"))
 
-# llm = Groq(model="llama3-groq-70b-8192-tool-use-preview", api_key=groq_api, request_timeout = 500)
-# phi3.5:3.8b-mini-instruct-q8_0
-llm = Ollama(model='phi3.5:latest ', request_timeout=500)
+
+# llm = OpenAI(
+#     model="gpt-4o-mini",
+#     api_key=OPENAI_API_KEY,  # uses OPENAI_API_KEY env var by default
+# )
+
+# Define LLM and embedding model
+# llm = Groq(model="llama3-groq-70b-8192-tool-use-preview", api_key=GROQ_API_KEY, request_timeout = 500)
+llm = Ollama(model='phi3.5:latest', request_timeout=500)  # Change model as needed, very slow
 embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
+# Configure settings for LLM and embeddings
 Settings.llm = llm
 Settings.embed_model = embed_model
 Settings.chunk_size = 1024
 
-tools = []
+# Initialize tools list for future extensions
+# tools = []
+
+# Utility Functions
+def list_databases():
+    """
+    Lists all databases in the 'DB' directory.
+    """
+    DB_DIR = "DB"
+    if not os.path.exists(DB_DIR):
+        os.makedirs(DB_DIR)
+    return [os.path.join(DB_DIR, f) for f in os.listdir(DB_DIR) if os.path.isdir(os.path.join(DB_DIR, f))]
 
 def list_to_string(lst):
+    """
+    Converts a list into a string with proper grammar for joining elements.
+    """
     if not lst:
         return ""
     elif len(lst) == 1:
@@ -40,18 +63,21 @@ def list_to_string(lst):
     else:
         return ", ".join(lst[:-1]) + " and " + lst[-1]
 
-
-def list_uploaded_files(): # list all files uploaded
+def list_uploaded_files():
+    """
+    Lists all files in the 'upload' directory.
+    """
     UPLOAD_DIR = "upload"
     if not os.path.exists(UPLOAD_DIR):
         return []
     return [f for f in os.listdir(UPLOAD_DIR) if os.path.isfile(os.path.join(UPLOAD_DIR, f))]
 
+# Vector Database Functions
 
-# Function to process uploaded file(s) and create a vector database
 def create_vector_database(file_input):
-    # global vector_database
-    # Directory to store uploaded files
+    """
+    Processes an uploaded file and creates a vector database.
+    """
     UPLOAD_DIR = "upload"
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -65,54 +91,53 @@ def create_vector_database(file_input):
 
     if os.path.exists(vectDB):
         return vectDB
-    
-    # # Read files using SimpleDirectoryReader
+
+    # Read files using SimpleDirectoryReader
     documents = SimpleDirectoryReader(input_files=[file_p]).load_data()
     index = VectorStoreIndex.from_documents(documents)
     index.storage_context.persist(persist_dir=vectDB)
-    # file_name = file_input.name[file_input.name.rfind("\\")+1:]
-    # vector_list[file_name] = vectDB
-    # new_options.append(file_name)
-    # print(vector_list)
 
     return vectDB
 
-
 def history_vdb(file_path):
-    if os.path.exists("DB/"+file_path):
-        return "Already exist"
+    """
+    Adds file to vector database if not already existing.
+    """
+    if os.path.exists("DB/" + file_path):
+        return "Already exists"
     else:
-        documents = SimpleDirectoryReader(input_files=["upload/"+file_path]).load_data()
+        documents = SimpleDirectoryReader(input_files=["upload/" + file_path]).load_data()
         index = VectorStoreIndex.from_documents(documents)
-        index.storage_context.persist(persist_dir="DB/"+file_path)
-
+        index.storage_context.persist(persist_dir="DB/" + file_path)
 
 def upload_file(files):
-    print("here")
-    file_paths = [file.name for file in files]
-    return file_paths
+    """
+    Handles file uploads and returns a list of file paths.
+    """
+    return [file.name for file in files]
 
+# Helper Functions
 
 def GetSources(response):
+    """
+    Extracts and formats sources and pages from the response metadata.
+    """
     pages = []
     sources = []
-    
-    for node in response.source_nodes:
-      # Access the TextNode object directly
-      text_node = node.node
 
-      # Assuming metadata is stored within the TextNode's metadata
-      source = text_node.metadata.get('file_name') # Access metadata using .metadata.get()
-      page = text_node.metadata.get('page_label')  # Access metadata using .metadata.get()
-      sources.append(source)
-      pages.append(page)
-    #   print(f"Source: {source} \nPage:{page}")
+    for node in response.source_nodes:
+        text_node = node.node
+        source = text_node.metadata.get('file_name')
+        page = text_node.metadata.get('page_label')
+        sources.append(source)
+        pages.append(page)
 
     return f"\nSource: {list_to_string(list(set(sources)))} \nPage: {list_to_string(list(set(pages)))}"
 
-
 def respond(message, chat_history, vdb='DB/theory_never_die.pdf'):
-
+    """
+    Handles user queries and updates the chat history with responses and sources.
+    """
     uploaded_files = list_uploaded_files()
     uploaded_files_dict = {file: f"DB/{file}" for file in uploaded_files}
 
@@ -123,73 +148,83 @@ def respond(message, chat_history, vdb='DB/theory_never_die.pdf'):
     response = query_engine.query(message)
 
     chat_history.append({"role": "user", "content": message})
-    chat_history.append({"role": "assistant", "content": str(response)+ '\n'+ GetSources(response)})
+    chat_history.append({"role": "assistant", "content": str(response) + '\n' + GetSources(response)})
     return "", chat_history, vdb
 
-
-def download_his(chat_history,_):
-    # Specify the file name
-    # file_name = "conversation.txt"
-    # Get the current date and time
-    print(chat_history)
+def download_his(chat_history, _):
+    """
+    Downloads the chat history to a JSON file and updates the vector database.
+    """
     now = datetime.now()
-
-    # Format it as a string for the file name
     file_name = now.strftime("%Y-%m-%d_%H-%M-%S.json")
 
-    # Write the list to a text file
-    with open('upload/'+file_name, "w") as file:
-        # Save the list to a JSON file
+    with open('upload/' + file_name, "w") as file:
         json.dump(chat_history, file, indent=4)
-        # for entry in chat_history:
-        #     file.write(f"{entry['role']}: {entry['content']}\n")
+
     history_vdb(file_name)
-    
-    return chat_history, file_name+ " downloaded at upload/" + file_name
+    return chat_history, file_name + " downloaded at upload/" + file_name
 
-
-# Create Gradio interface
+# Gradio Interface
 with gr.Blocks() as demo:
-    gr.Markdown("# Vector Database Creation and Selection")
-
-    # # Step 1: Upload file(s)
-    file_input = gr.File(label="Upload your Ebook", file_types=[".pdf", ".epub"], file_count = "single")
-    # print(file_input)
-
-    # # # Step 2: Create vector database
+    # The Gradio interface serves as the user-friendly frontend for the application, enabling users to upload documents, create vector databases, and interact with the chatbot for querying document content.
+    gr.HTML("<h1 style='text-align: center;'>Hello, I am <strong>AI Librarian</strong>!</h1>")  # Centered title
+    gr.HTML("<h2 style='text-align: center;'>Start to chat with me for any informations about the books!</h2>")  # Centered title        
+    gr.Markdown('---')
+    gr.Markdown("## Vector Database Creation and Selection")
+    gr.Markdown('1. Upload your book or use the defalt book theory_never_die.pdf\n '+
+                '2. Click the Process the Book button to process the uploaded book.(that would be stored at /upload dir\n'+
+                '3. When the database is created, Start the chat :)')
+    
+    
+    file_input = gr.File(label="Upload your Ebook", file_types=[".pdf", ".epub"], file_count="single")  # Allows users to upload an ebook in supported formats to create a vector database.
     create_db_button = gr.Button("Process the Book")
-    db_creation_output = gr.Textbox('DB/theory_never_die.pdf', label="Database Created at", interactive=False)
-    # drop_down = gr.Dropdown(loaded_files, label = "Document", info = "Choose the document you would like to have a conversation with")
+    db_creation_output = gr.Textbox('DB/theory_never_die.pdf', label="Database Created at (File path of the generated vector database)", interactive=False)
+
+    db_example = gr.Examples(
+        examples=list_databases(),
+        inputs=db_creation_output,
+        label="Select a Database",
+    )
+    gr.Markdown("Retart to update the options after upload a book :( ")
+    
+    # db_creation_output.change(update_examples, db_example, db_example)
 
     create_db_button.click(
         create_vector_database,
         inputs=file_input,
         outputs=db_creation_output
-        )
+    )
 
-    # db_creation_output.change(update_dropdown, [db_creation_output, drop_down],[db_creation_output, drop_down])
+    gr.Markdown('---')
+
+    gr.Markdown("## Chat Section")
 
     chatbot = gr.Chatbot(type="messages")
-    msg = gr.Textbox(placeholder="Ask me informations about given document")
+    msg = gr.Textbox(placeholder="Ask me information about the given document")
     gr.Examples(
         examples=[
             "Tell me a fun story in the book",
-            "What is one of the most important thing Bayes did",
+            "What is one of the most important things Bayes did",
             "Tell me about 5 Applications of Bayes Theorem"
         ],
         inputs=msg
-    )
+    )  # These examples provide predefined queries to help users understand the types of questions they can ask.
     button = gr.Button(value="Submit")
 
     msg.submit(respond, [msg, chatbot, db_creation_output], [msg, chatbot, db_creation_output])
     button.click(respond, [msg, chatbot, db_creation_output], [msg, chatbot, db_creation_output])
 
-    history_status = gr.Textbox(label = "Status of history downloading", interactive=False)
-    button_his = gr.Button(value = "Download History")
-    button_his.click(download_his, [chatbot,history_status], [chatbot, history_status])
+    gr.Markdown('---')
+
+    gr.Markdown("## Chat History Download Section")
+
+    history_status = gr.Textbox(label="Status of history downloading", interactive=False)
+    button_his = gr.Button(value="Download History")
+    button_his.click(download_his, [chatbot, history_status], [chatbot, history_status])
 
     clear_button = gr.Button("Clear Chat")
-    clear_button.click(lambda: [], inputs=None, outputs=chatbot)  # Clear the chat history
+    # Note: Clearing the chat resets the  chat history. It does not affect the session state or database.
+    clear_button.click(lambda: [], inputs=None, outputs=chatbot)
 
-# Launch the app
+# Launch the Gradio app
 demo.launch()
